@@ -1,0 +1,196 @@
+{
+  "info": {
+    "name": "VoxAssist API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "0.1.0",
+    "description": "Postman collection generated from OpenAPI for VoxAssist"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"]},
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password\"\n}"}
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.environment.set('accessToken', data.accessToken);",
+                  "  pm.environment.set('refreshToken', data.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh"]},
+            "body": {"mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Telephony",
+      "item": [
+        {
+          "name": "Connect Number",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/telephony/connect", "host": ["{{baseUrl}}"], "path": ["api", "telephony", "connect"]},
+            "body": {"mode": "raw", "raw": "{\n  \"provider\": \"twilio\",\n  \"credentials\": {\n    \"accountSid\": \"AC...\",\n    \"authToken\": \"...\"\n  },\n  \"phoneNumber\": "+15551234567"\n}"}
+          }
+        },
+        {
+          "name": "List Numbers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/telephony/numbers", "host": ["{{baseUrl}}"], "path": ["api", "telephony", "numbers"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Calls",
+      "item": [
+        {
+          "name": "Start Outbound Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/call/outbound", "host": ["{{baseUrl}}"], "path": ["api", "call", "outbound"]},
+            "body": {"mode": "raw", "raw": "{\n  \"to\": "+15557654321",\n  \"from\": "+15551234567",\n  \"agentPersonaId\": \"00000000-0000-0000-0000-000000000000\"\n}"}
+          }
+        },
+        {
+          "name": "Transfer Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Idempotency-Key", "value": "{{$guid}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/call/{{callId}}/transfer", "host": ["{{baseUrl}}"], "path": ["api", "call", "{{callId}}", "transfer"]},
+            "body": {"mode": "raw", "raw": "{\n  \"target\": "+15559876543",\n  \"warmTransfer\": true\n}"}
+          }
+        },
+        {
+          "name": "Get Call",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/call/{{callId}}", "host": ["{{baseUrl}}"], "path": ["api", "call", "{{callId}}"]}
+          }
+        },
+        {
+          "name": "List Calls",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/calls?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "calls"],
+              "query": [{"key": "limit", "value": "20"}]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transcripts",
+      "item": [
+        {
+          "name": "Get Transcript",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/calls/{{callId}}/transcript", "host": ["{{baseUrl}}"], "path": ["api", "calls", "{{callId}}", "transcript"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notes",
+      "item": [
+        {
+          "name": "Upsert Notes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/calls/{{callId}}/notes", "host": ["{{baseUrl}}"], "path": ["api", "calls", "{{callId}}", "notes"]},
+            "body": {"mode": "raw", "raw": "{\n  \"text\": \"Summary...\",\n  \"suggestedActions\": [\"Follow up\"]\n}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Create Actions (Single)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/calls/{{callId}}/actions", "host": ["{{baseUrl}}"], "path": ["api", "calls", "{{callId}}", "actions"]},
+            "body": {"mode": "raw", "raw": "{\n  \"title\": \"Call back\",\n  \"description\": \"Schedule demo\",\n  \"assignee\": \"me\"\n}"}
+          }
+        },
+        {
+          "name": "Create Actions (Batch)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/calls/{{callId}}/actions", "host": ["{{baseUrl}}"], "path": ["api", "calls", "{{callId}}", "actions"]},
+            "body": {"mode": "raw", "raw": "[\n  {\n    \"title\": \"Email recap\"\n  },\n  {\n    \"title\": \"Book meeting\",\n    \"dueDate\": \"2025-01-01T10:00:00Z\"\n  }\n]"}
+          }
+        }
+      ]
+    }
+  ]
+}

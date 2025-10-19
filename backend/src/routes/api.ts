@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { authRouter } from './auth.js';
+import { telephonyRouter } from './telephony.js';
+import { callsRouter } from './calls.js';
+import { transcriptsRouter } from './transcripts.js';
+import { notesRouter } from './notes.js';
+
+export const router = Router();
+
+router.use('/auth', authRouter);
+router.use('/telephony', telephonyRouter);
+router.use('/call', callsRouter);
+router.use('/calls', transcriptsRouter);
+router.use('/calls', notesRouter);
