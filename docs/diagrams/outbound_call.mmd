@@ -1,0 +1,47 @@
+%% Mermaid sequence diagram: Outbound call flow
+sequenceDiagram
+    autonumber
+    participant App as Mobile App (UI)
+    participant API as API Gateway
+    participant CO as Call Orchestrator
+    participant T as Telephony (Twilio)
+    participant P as Prospect/Customer
+    participant R as Realtime Orchestrator
+    participant STT as STT Provider
+    participant DM as Dialog Manager (LLM)
+    participant TTS as ElevenLabs TTS
+    participant DB as Storage (S3/DB)
+
+    App->>API: POST /api/call/outbound {to, from, agentPersonaId}
+    API->>CO: Validate + Idempotency-Key
+    CO->>T: Create outbound call (dial to P)
+    T-->>CO: externalCallId
+    CO->>R: Initialize session (JWT/wsUrl, config)
+    par Connect parties
+        App-->>R: Subscribe WebSocket (wss://.../realtime)
+        T->>P: Ringing
+    end
+    P-->>T: Answer
+    T->>R: Media path up (SIP↔WebRTC)
+    R->>DB: Start recording
+    R->>STT: Stream audio
+    STT-->>R: transcript.partial
+    R-->>App: transcript.partial
+    R->>DM: Context + partials
+    DM-->>R: Reply text
+    R->>TTS: Stream TTS
+    TTS-->>R: tts.chunk (first bytes)
+    R-->>T: Audio
+    T-->>P: Audio
+    loop Conversation
+        STT-->>R: transcript.final
+        R->>DB: Persist
+        R->>DM: Update dialog
+        DM-->>R: Next reply
+        R->>TTS: Stream TTS
+        TTS-->>R: tts.chunk...
+        R-->>T: Audio...
+        T-->>P: Audio...
+    end
+    CO->>DB: Update status, cost
+    R-->>App: call.ended + links

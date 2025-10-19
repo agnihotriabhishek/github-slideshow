@@ -1,0 +1,519 @@
+openapi: 3.1.0
+info:
+  title: VoxAssist API
+  version: 0.1.0
+  description: |
+    VoxAssist (placeholder) API for AI voice agent orchestration, telephony provisioning,
+    realtime call management, transcripts, notes, tasks, and analytics.
+    - Auth: OAuth2/JWT (bearer tokens)
+    - Realtime: WebSocket at `wss://api.example.com/realtime?token=...`
+    - Idempotency: Supported on selected write endpoints via `Idempotency-Key` header
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: https://staging.api.example.com
+    description: Staging
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Telephony
+  - name: Calls
+  - name: Transcripts
+  - name: Notes
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Auth tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshToken
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: New access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/telephony/connect:
+    post:
+      tags: [Telephony]
+      operationId: connectTelephony
+      summary: Connect and verify business phone number/provider
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelephonyConnectRequest'
+      responses:
+        '201':
+          description: Connected number metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectedNumber'
+  /api/telephony/numbers:
+    get:
+      tags: [Telephony]
+      operationId: listNumbers
+      summary: List connected numbers and statuses
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Connected numbers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConnectedNumber'
+  /api/call/outbound:
+    post:
+      tags: [Calls]
+      operationId: startOutboundCall
+      summary: Start an outbound call
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OutboundCallRequest'
+      responses:
+        '201':
+          description: Call started
+          headers:
+            Location:
+              description: URL of created call resource
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+  /api/call/{callId}/transfer:
+    post:
+      tags: [Calls]
+      operationId: transferCall
+      summary: Transfer an active call to another number or agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '202':
+          description: Transfer initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+  /api/call/{callId}:
+    get:
+      tags: [Calls]
+      operationId: getCall
+      summary: Get call metadata and links
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Call metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+  /api/calls:
+    get:
+      tags: [Calls]
+      operationId: listCalls
+      summary: List/filter calls
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            description: E.164 phone number filter
+        - name: to
+          in: query
+          schema:
+            type: string
+            description: E.164 phone number filter
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed]
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Calls
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Call'
+                  nextCursor:
+                    type: string
+                    nullable: true
+  /api/calls/{callId}/transcript:
+    get:
+      tags: [Transcripts]
+      operationId: getTranscript
+      summary: Get transcript segments for a call
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transcript
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcript'
+  /api/calls/{callId}/notes:
+    post:
+      tags: [Notes]
+      operationId: upsertCallNotes
+      summary: Add or edit call notes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallNotesUpsertRequest'
+      responses:
+        '200':
+          description: Updated call notes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallNotes'
+  /api/calls/{callId}/actions:
+    post:
+      tags: [Calls]
+      operationId: createActions
+      summary: Create follow-up task(s) for a call
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TaskCreateRequest'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/TaskCreateRequest'
+      responses:
+        '201':
+          description: Created task(s)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Task'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: RFC-Idempotency-Key style token to dedupe retries
+      schema:
+        type: string
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Seconds until access token expiry
+    TelephonyConnectRequest:
+      type: object
+      required: [provider, credentials, phoneNumber]
+      properties:
+        provider:
+          type: string
+          enum: [twilio, plivo, telnyx, sip]
+        credentials:
+          type: object
+          additionalProperties: true
+        phoneNumber:
+          type: string
+          description: E.164 formatted number
+    ConnectedNumber:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        phoneNumber:
+          type: string
+        status:
+          type: string
+          enum: [connected, pending, failed]
+        createdAt:
+          type: string
+          format: date-time
+    OutboundCallRequest:
+      type: object
+      required: [to]
+      properties:
+        to:
+          type: string
+          description: E.164 destination number
+        from:
+          type: string
+          description: Optional source number if multiple are connected
+        agentPersonaId:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
+    TransferRequest:
+      type: object
+      required: [target]
+      properties:
+        target:
+          type: string
+          description: Destination number or user identifier
+        warmTransfer:
+          type: boolean
+          default: false
+    Call:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        number: { type: string }
+        direction: { type: string, enum: [inbound, outbound] }
+        provider: { type: string }
+        externalCallId: { type: string }
+        agentPersonaId: { type: string, format: uuid }
+        startTime: { type: string, format: date-time }
+        endTime: { type: string, format: date-time, nullable: true }
+        durationSec: { type: integer, nullable: true }
+        cost:
+          type: number
+          format: float
+          nullable: true
+        recordingUrl: { type: string, nullable: true }
+        transcriptId: { type: string, format: uuid, nullable: true }
+        status: { type: string, enum: [open, closed] }
+        tags:
+          type: array
+          items: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+    Transcript:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        callId: { type: string, format: uuid }
+        language: { type: string, nullable: true }
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptSegment'
+    TranscriptSegment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        seq: { type: integer }
+        startMs: { type: integer }
+        endMs: { type: integer }
+        speaker: { type: string, enum: [caller, agent, human] }
+        text: { type: string }
+        confidence: { type: number, format: float }
+        isFinal: { type: boolean }
+    AgentPersona:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        name: { type: string }
+        ttsVoiceId: { type: string }
+        scriptTemplates:
+          type: object
+          additionalProperties: true
+        fallbackAction: { type: string }
+    CallNotes:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        callId: { type: string, format: uuid }
+        text: { type: string }
+        suggestedActions:
+          type: array
+          items:
+            type: string
+        updatedAt:
+          type: string
+          format: date-time
+    CallNotesUpsertRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+        suggestedActions:
+          type: array
+          items:
+            type: string
+    Task:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        callId: { type: string, format: uuid }
+        assignee: { type: string, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [todo, in_progress, done, cancelled] }
+        title: { type: string }
+        description: { type: string, nullable: true }
+    TaskCreateRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
+        assignee: { type: string, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+
+x-realtime:
+  websocket:
+    urlTemplate: wss://api.example.com/realtime?token={jwt}
+    eventsSpec: ./../realtime/events.yaml

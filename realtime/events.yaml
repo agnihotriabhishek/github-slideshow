@@ -1,0 +1,137 @@
+version: 1.0.0
+info:
+  name: VoxAssist Realtime Events
+  description: |
+    Server-to-client and client-to-server event contracts for the realtime WebSocket.
+    All messages use an envelope with `type`, `eventId`, `seq`, `ts`, `callId`, and `payload`.
+    - `seq` is a strictly increasing per-call sequence number for ordering.
+    - `ts` is ISO-8601 with timezone.
+    - Clients MUST ack using `client.ack` with the `eventId` they have processed.
+    - Servers MAY retransmit unacked events; clients MUST de-duplicate by `eventId`.
+
+envelope:
+  type: object
+  required: [type, eventId, seq, ts, callId]
+  properties:
+    type:
+      type: string
+      enum:
+        - call.started
+        - transcript.partial
+        - transcript.final
+        - tts.chunk
+        - dtmf.detected
+        - call.ended
+        - system.ping
+        - system.ack
+        - client.ack
+        - client.barge_in
+    eventId:
+      type: string
+      format: uuid
+    seq:
+      type: integer
+      minimum: 0
+    ts:
+      type: string
+      format: date-time
+    callId:
+      type: string
+    payload:
+      oneOf:
+        - $ref: '#/events/call.started'
+        - $ref: '#/events/transcript.partial'
+        - $ref: '#/events/transcript.final'
+        - $ref: '#/events/tts.chunk'
+        - $ref: '#/events/dtmf.detected'
+        - $ref: '#/events/call.ended'
+        - $ref: '#/events/system.ping'
+        - $ref: '#/events/system.ack'
+        - $ref: '#/events/client.ack'
+        - $ref: '#/events/client.barge_in'
+
+# Event payload definitions
+/events:
+  call.started:
+    type: object
+    required: [from, to, direction, provider]
+    properties:
+      from: { type: string, description: E.164 caller }
+      to: { type: string, description: E.164 callee }
+      direction: { type: string, enum: [inbound, outbound] }
+      provider: { type: string, enum: [twilio, plivo, telnyx, sip] }
+      externalCallId: { type: string }
+      agentPersonaId: { type: string }
+  transcript.partial:
+    type: object
+    required: [segment]
+    properties:
+      segment:
+        type: object
+        required: [seq, startMs, endMs, speaker, text, confidence]
+        properties:
+          id: { type: string }
+          seq: { type: integer }
+          startMs: { type: integer }
+          endMs: { type: integer }
+          speaker: { type: string, enum: [caller, agent, human] }
+          text: { type: string }
+          confidence: { type: number }
+          isFinal: { type: boolean, const: false }
+  transcript.final:
+    type: object
+    required: [segment]
+    properties:
+      segment:
+        type: object
+        required: [id, seq, startMs, endMs, speaker, text]
+        properties:
+          id: { type: string }
+          seq: { type: integer }
+          startMs: { type: integer }
+          endMs: { type: integer }
+          speaker: { type: string, enum: [caller, agent, human] }
+          text: { type: string }
+          confidence: { type: number }
+          isFinal: { type: boolean, const: true }
+  tts.chunk:
+    type: object
+    required: [chunkId, codec, sampleRate, data]
+    properties:
+      chunkId: { type: string }
+      codec: { type: string, enum: [opus, pcm16, mp3] }
+      sampleRate: { type: integer, enum: [16000, 24000, 48000] }
+      data: { type: string, description: base64-encoded audio bytes }
+      lastChunk: { type: boolean, default: false }
+  dtmf.detected:
+    type: object
+    required: [digits, atMs]
+    properties:
+      digits: { type: string }
+      atMs: { type: integer }
+  call.ended:
+    type: object
+    required: [reason]
+    properties:
+      reason: { type: string, enum: [hangup, error, timeout, transferred] }
+      durationSec: { type: integer }
+      cost: { type: number }
+  system.ping:
+    type: object
+    properties:
+      nonce: { type: string }
+  system.ack:
+    type: object
+    required: [eventId]
+    properties:
+      eventId: { type: string }
+  client.ack:
+    type: object
+    required: [eventId]
+    properties:
+      eventId: { type: string }
+  client.barge_in:
+    type: object
+    properties:
+      reason: { type: string, enum: [user_speaking, dtmf, manual] }
+      atMs: { type: integer }
