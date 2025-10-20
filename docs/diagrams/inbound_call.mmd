@@ -1,0 +1,46 @@
+%% Mermaid sequence diagram: Inbound call flow
+sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant T as Telephony (Twilio/SIP)
+    participant R as Realtime Orchestrator (WebRTC/WS)
+    participant STT as STT Provider
+    participant DM as Dialog Manager (LLM)
+    participant TTS as ElevenLabs TTS
+    participant DB as Storage (S3/DB)
+    participant App as Mobile App (UI)
+
+    C->>T: Dial business E.164
+    T->>R: Establish media session (SIP↔WebRTC)
+    R->>DB: Start recording (S3 pre-signed upload)
+    R->>STT: Stream audio (opus/pcm16)
+    STT-->>R: transcript.partial (seq, startMs, text, confidence)
+    R-->>App: transcript.partial (WS)
+    par Intent + early response
+        R->>DM: Context + partial transcript
+        DM-->>R: Short ack or reply text
+        R->>TTS: Stream TTS request
+        TTS-->>R: tts.chunk (first bytes <150ms)
+        R-->>T: RTP audio chunk
+        T-->>C: Play audio
+    and Duplex with barge-in
+        C-->>R: User speaking (VAD barge-in)
+        R-->>TTS: Pause/stop current TTS
+        R->>STT: Continue streaming user speech
+    end
+    loop Turn-taking
+        STT-->>R: transcript.final (seq, text)
+        R->>DB: Persist segment
+        R->>DM: Update dialog state
+        DM-->>R: Next reply
+        R->>TTS: Stream TTS
+        TTS-->>R: tts.chunk...
+        R-->>T: Audio...
+        T-->>C: Audio...
+    end
+    R->>DB: Finalize transcript, notes, analytics
+    R-->>App: call.ended + links
+    T-->>C: Hangup
+
+    Note over R,DM: Predictive start allowed with partial intents
+    Note over R,TTS: Cache common greetings to reduce TTFB

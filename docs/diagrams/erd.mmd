@@ -1,0 +1,111 @@
+%% Mermaid ER diagram
+erDiagram
+  accounts ||--o{ agent_personas : has
+  accounts ||--o{ connected_numbers : has
+  accounts ||--o{ calls : has
+
+  agent_personas ||--o{ calls : "default persona"
+
+  calls ||--|{ transcripts : has
+  calls ||--o{ transcript_segments : streams
+  calls ||--o{ call_notes : has
+  calls ||--o{ tasks : has
+  calls ||--o{ billing_records : billed_by
+
+  accounts {
+    uuid id PK
+    text name
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  agent_personas {
+    uuid id PK
+    uuid account_id FK
+    text name
+    text tts_voice_id
+    jsonb script_templates
+    text fallback_action
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  connected_numbers {
+    uuid id PK
+    uuid account_id FK
+    text provider
+    text phone_number
+    text status
+    jsonb meta
+    timestamptz created_at
+  }
+
+  calls {
+    uuid id PK
+    uuid account_id FK
+    text provider
+    text external_call_id
+    uuid agent_persona_id FK
+    text number
+    text direction
+    timestamptz start_time
+    timestamptz end_time
+    int duration_sec
+    numeric cost
+    text recording_url
+    uuid transcript_id FK
+    text status
+    text[] tags
+    jsonb metadata
+  }
+
+  transcripts {
+    uuid id PK
+    uuid call_id FK
+    text language
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  transcript_segments {
+    uuid id PK
+    uuid call_id FK
+    int seq
+    int start_ms
+    int end_ms
+    text speaker
+    text text
+    numeric confidence
+    boolean is_final
+    timestamptz created_at
+  }
+
+  call_notes {
+    uuid id PK
+    uuid call_id FK
+    text text
+    jsonb suggested_actions
+    timestamptz updated_at
+    timestamptz created_at
+  }
+
+  tasks {
+    uuid id PK
+    uuid call_id FK
+    text title
+    text description
+    text assignee
+    timestamptz due_date
+    text status
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  billing_records {
+    uuid id PK
+    uuid call_id FK
+    numeric provider_cost
+    numeric markup
+    text invoice_id
+    timestamptz created_at
+  }

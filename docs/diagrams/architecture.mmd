@@ -1,0 +1,61 @@
+%% Mermaid architecture diagram
+flowchart LR
+  subgraph Mobile[Mobile App (FlutterFlow + custom widgets)]
+    UI[Chat-like UI + Call List]
+    WS[WebSocket Client]
+    Audio[Waveform + Player]
+  end
+
+  subgraph API[API Gateway]
+    Auth[OAuth2/JWT]
+    Rate[Rate Limiting]
+  end
+
+  subgraph RT[Realtime Orchestrator]
+    WSrv[WS Hub]
+    Media[WebRTC/SIP Bridge]
+    Recorder[Recording Proxy]
+    Router[Event Router]
+  end
+
+  subgraph Agents[Voice Agents Service]
+    DM[Dialog Manager (LLM orchestration)]
+    TTSAdapter[ElevenLabs TTS Adapter]
+    STTAdapter[Streaming STT Adapter]
+    CallOrch[Call Orchestrator]
+  end
+
+  subgraph Integrations[External Providers]
+    Twilio[(Telephony: Twilio/Plivo/Telnyx/SIP)]
+    Eleven[(ElevenLabs TTS)]
+    STT[(STT: Deepgram/AssemblyAI/GCP/Whisper)]
+    CRM[(CRMs: HubSpot/Salesforce/Zoho)]
+  end
+
+  subgraph Data[Storage & Analytics]
+    DB[(Postgres)]
+    S3[(S3 Recordings)]
+    Metrics[(Metrics/Tracing - Datadog/OTel)]
+  end
+
+  UI --> WS
+  WS -->|wss| API
+  API --> RT
+  WS --- RT
+  Audio --> WS
+
+  RT --> Media
+  Media --- Twilio
+  RT --> Recorder --> S3
+  RT --> Router --> Agents
+
+  Agents --> DM
+  Agents --> TTSAdapter --> Eleven
+  Agents --> STTAdapter --> STT
+  Agents --> CallOrch --> Twilio
+  Agents --> DB
+  Agents --> Metrics
+
+  RT --> DB
+  API --> DB
+  API --> CRM
